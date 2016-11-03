@@ -3,7 +3,8 @@
 from neo4j import GraphDatabase
 from datetime import datetime
 import RDF, sys, os, subprocess
-
+from os import listdir
+from os.path import isfile, join
 
 def checkArgs():
     if len(sys.argv) < 2:
@@ -46,32 +47,34 @@ def main():
     sys.setdefaultencoding("UTF8")
     success = checkArgs()
     if not success:
-        print "Usage: python dbpediaNeo4j.py /full/path/filename.nt"
+        print "Usage: python dbpediaNeo4j.py /full/path/dirofntfiles"
         sys.exit(1)
     
     # create dbpedia-graph.db
     db,index = createDB()
     counter = 0.0
-    file_lines = int((subprocess.check_output(['wc', '-l', sys.argv[1]])).split()[0])
-
-    # RDF parses dbpedia ntriples dump
-    parser = RDF.Parser("ntriples")
-    stream = parser.parse_as_stream("file://" + sys.argv[1])
-    print
+    dbfiles = [join(sys.argv[1], f) for f in listdir(sys.argv[1]) if isfile(join(sys.argv[1], f)) and join(sys.argv[1], f)[:-3] == '.nt' ]
     startTime = datetime.now()
-    # start parsing
-    for triple in stream:
-        # extract nodes and relationship
-        a = str(triple.subject).split('/')[-1]
-        r = str(triple.predicate).split('/')[-1]
-        b = str(triple.object).split('/')[-1]
-        createNodes(db, index, a, b, r)
-        counter+=1
-	# print updated percentage
-        if (counter % 100) == 0:
-            perc = (counter/file_lines)*100
-            sys.stdout.write("\rProgress: %d%%" %perc)
-            sys.stdout.flush()
+    for f in dbfiles:
+	file_lines = int((subprocess.check_output(['wc', '-l', f])).split()[0])	
+	# RDF parses dbpedia ntriples dump
+    	parser = RDF.Parser("ntriples")
+    	stream = parser.parse_as_stream("file://" + f)
+    	print
+    	#startTime = datetime.now()
+    	# start parsing
+    	for triple in stream:
+        	# extract nodes and relationship
+        	a = str(triple.subject).split('/')[-1]
+        	r = str(triple.predicate).split('/')[-1]
+        	b = str(triple.object).split('/')[-1]
+        	createNodes(db, index, a, b, r)
+        	counter+=1
+		# print updated percentage
+        	if (counter % 100) == 0:
+            		perc = (counter/file_lines)*100
+            		sys.stdout.write("\rProgress: %d%%" %perc)
+            		sys.stdout.flush()
 
     # Shutdown db
     db.shutdown()
